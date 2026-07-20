@@ -1,0 +1,2 @@
+prompts/*.txt -text
+prompts/workshop/*.txt -text
