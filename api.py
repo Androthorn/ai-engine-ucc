@@ -173,7 +173,16 @@ async def start():
             host = monitor_config.get("host", "localhost")
             port = monitor_config.get("port", 8080)
             route = monitor_config.get("route", "metrics")
-            interval = monitor_config.get("interval", "5m")
+            # A janela pedida ao monitor é a JANELA DE ANÁLISE, não a cadência de coleta.
+            # Antes isto recebia collection_interval (5s no cenário comprimido): a janela
+            # cabia entre duas coletas e o monitor devolvia {} em ~13% das chamadas, e o
+            # ciclo era pulado em silêncio (nenhuma chamada ao LLM no run inteiro).
+            _lookback = app_state.config.get("ai", {}).get("timestamp_lookback_seconds")
+            _collection = monitor_config.get("interval")
+            try:
+                interval = max(int(_lookback or 0), int(_collection or 0) * 12, 60)
+            except (TypeError, ValueError):
+                interval = 300
 
             url = f"http://{host}:{port}/{route}"
             json_payload = {"interval": interval}
