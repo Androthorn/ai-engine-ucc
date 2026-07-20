@@ -123,6 +123,10 @@ def process_monitoring_data(data, timestamp_lookback_seconds=None):
             return {"workloads": [], "cluster_info": []}
 
         if not timestamps:
+            logger.warning(
+                "⚠️ monitor devolveu 0 timestamps (payload vazio) — "
+                "nenhum dado para analisar nesta rodada"
+            )
             return {"workloads": [], "cluster_info": []}
 
         latest_timestamp = timestamps[0]
@@ -173,6 +177,26 @@ def process_monitoring_data(data, timestamp_lookback_seconds=None):
             "workloads": filled,
             "cluster_info": cluster_info,
         }
+
+    # DIAG: o guard de formato falhou — registrar POR QUÊ antes de devolver data cru
+    try:
+        if isinstance(data, dict):
+            _amostra = [
+                (k, type(v).__name__, ("workloads" in v) if isinstance(v, dict) else False)
+                for k, v in list(data.items())[:3]
+            ]
+            logger.warning(
+                "⚠️ formato inesperado do monitor: n_chaves=%d amostra=%s — "
+                "devolvendo data cru como 'workloads'",
+                len(data), _amostra,
+            )
+        else:
+            logger.warning(
+                "⚠️ formato inesperado do monitor: type=%s — devolvendo data cru como 'workloads'",
+                type(data).__name__,
+            )
+    except Exception as _diag_err:  # pylint: disable=broad-exception-caught
+        logger.warning("DIAG falhou: %s", _diag_err)
 
     return {
         "workloads": data,

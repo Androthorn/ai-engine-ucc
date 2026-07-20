@@ -190,6 +190,16 @@ async def start():
                                 color="GREEN",
                             )
                         )
+                        # DIAG: forma do payload do monitor (caça ao modo zero-ciclo)
+                        try:
+                            _n_ts = len(data) if isinstance(data, dict) else -1
+                            _latest = max(data.keys()) if isinstance(data, dict) and data else None
+                            logger.info(
+                                "DIAG monitor payload: type=%s n_timestamps=%s latest=%s",
+                                type(data).__name__, _n_ts, _latest,
+                            )
+                        except Exception as _diag_err:  # pylint: disable=broad-exception-caught
+                            logger.warning("DIAG falhou ao inspecionar payload: %s", _diag_err)
                     else:
                         logger.error(
                             "Failed to fetch metrics from MONITOR: %s", response.status
@@ -202,6 +212,10 @@ async def start():
         processed_data = process_monitoring_data(data)
 
         if not processed_data:
+            logger.warning(
+                "⚠️ CICLO PULADO: process_monitoring_data devolveu vazio/falsy — "
+                "nenhuma chamada ao LLM nesta rodada"
+            )
             return
 
         workloads = processed_data.get("workloads", [])
@@ -248,6 +262,16 @@ async def start():
                     logger.error(f"Failed to save history batch recommendations: {e}")
 
             await apply_recommendations(recommendations)
+
+        else:
+            logger.warning(
+                "⚠️ CICLO PULADO: zero workloads após processamento — "
+                "payload tinha %s timestamps, cluster_info=%s, interval_duration=%s. "
+                "Nenhuma chamada ao LLM nesta rodada.",
+                len(data) if isinstance(data, dict) else "?",
+                len(cluster_info) if isinstance(cluster_info, list) else "?",
+                interval_duration,
+            )
 
     # run the scheduler in a separate thread
     def run_scheduler():
